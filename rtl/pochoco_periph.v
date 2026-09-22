@@ -4,9 +4,14 @@
 // SPDX-License-Identifier: SHL-0.51
 //
 // Course: Arquitectura de Computadores (2026)
-// 
+//
 // Authors:
 // - Nicolás Villegas <navillegas@miuandes.cl>
+
+// Este módulo controla los periféricos del Pochoco SoC, como los LEDs,
+// botones y displays. Para el juego se agrega un contador de ciclos de
+// 32 bits, que puede ser leído desde Assembly para realizar las esperas,
+// medir el tiempo de respuesta y ayudar con la selección pseudoaleatoria.
 
 module pochoco_periph (
   input  wire        clk_i,
@@ -27,17 +32,29 @@ module pochoco_periph (
   wire       access = sel_i & req_i;
 
   // LEDs and raw digit registers
-  reg [3:0]  led_q;
-  reg [7:0]  digit_q;
-  
+  reg [3:0] led_q;
+  reg [7:0] digit_q;
+
+  // Contador de ciclos de 32 bits.
+  // Aumenta en uno por cada ciclo del reloj de la FPGA.
+  reg [31:0] cycle_counter_q;
+
+  always @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni)
+      cycle_counter_q <= 32'b0;
+    else
+      cycle_counter_q <= cycle_counter_q + 32'd1;
+  end
+
+  // Escritura de los registros de salida
   always @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
       led_q   <= 4'b0;
       digit_q <= 8'b0;
     end else if (access & we_i) begin
       case (off)
-        6'd0: digit_q <= wdata_i[7:0];
-        6'd1: led_q   <= wdata_i[3:0];
+        6'd0: digit_q <= wdata_i[7:0]; // 0x80000000 - Displays
+        6'd1: led_q   <= wdata_i[3:0]; // 0x80000004 - LEDs
         default: ;
       endcase
     end
@@ -50,22 +67,22 @@ module pochoco_periph (
     input [3:0] hex;
     begin
       case (hex)
-        4'h0: hex2seg = 7'b0111111; // 0
-        4'h1: hex2seg = 7'b0000110; // 1
-        4'h2: hex2seg = 7'b1011011; // 2
-        4'h3: hex2seg = 7'b1001111; // 3
-        4'h4: hex2seg = 7'b1100110; // 4
-        4'h5: hex2seg = 7'b1101101; // 5
-        4'h6: hex2seg = 7'b1111101; // 6
-        4'h7: hex2seg = 7'b0000111; // 7
-        4'h8: hex2seg = 7'b1111111; // 8
-        4'h9: hex2seg = 7'b1101111; // 9
-        4'hA: hex2seg = 7'b1110111; // A
-        4'hB: hex2seg = 7'b1111100; // b
-        4'hC: hex2seg = 7'b0111001; // C
-        4'hD: hex2seg = 7'b1011110; // d
-        4'hE: hex2seg = 7'b1111001; // E
-        4'hF: hex2seg = 7'b1110001; // F
+        4'h0: hex2seg = 7'b0111111;
+        4'h1: hex2seg = 7'b0000110;
+        4'h2: hex2seg = 7'b1011011;
+        4'h3: hex2seg = 7'b1001111;
+        4'h4: hex2seg = 7'b1100110;
+        4'h5: hex2seg = 7'b1101101;
+        4'h6: hex2seg = 7'b1111101;
+        4'h7: hex2seg = 7'b0000111;
+        4'h8: hex2seg = 7'b1111111;
+        4'h9: hex2seg = 7'b1101111;
+        4'hA: hex2seg = 7'b1110111;
+        4'hB: hex2seg = 7'b1111100;
+        4'hC: hex2seg = 7'b0111001;
+        4'hD: hex2seg = 7'b1011110;
+        4'hE: hex2seg = 7'b1111001;
+        4'hF: hex2seg = 7'b1110001;
         default: hex2seg = 7'b0000000;
       endcase
     end
@@ -74,12 +91,19 @@ module pochoco_periph (
   assign seg1_o = hex2seg(digit_q[7:4]);
   assign seg2_o = hex2seg(digit_q[3:0]);
 
-  // Registered read data
+  // Lectura de los periféricos desde Assembly
   always @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) rdata_o <= 32'b0;
-    else if (access & ~we_i) begin
+    if (!rst_ni) begin
+      rdata_o <= 32'b0;
+    end else if (access & ~we_i) begin
       case (off)
-        6'd2: rdata_o <= {28'b0, btn_i}; // Buttons
+
+        // 0x80000008
+        6'd2: rdata_o <= {28'b0, btn_i};
+
+        // 0x8000000C
+        6'd3: rdata_o <= cycle_counter_q;
+
         default: rdata_o <= 32'b0;
       endcase
     end
