@@ -107,6 +107,7 @@ program = [
     encode_addi(4, 0, 15),
     encode_sw(4, 2, 4),
 
+    # Espera inicial
     encode_lw(6, 2, 12),
     encode_lui(5, 0x04C00),
 
@@ -116,30 +117,63 @@ program = [
     encode_bge(8, 5, 8),
     encode_jal(0, -12),
 
-    # target: LED 1
+    # LED objetivo = LED 1
     encode_addi(4, 0, 1),
     encode_sw(4, 2, 4),
 
+    # Inicio medicion
+    encode_lw(6, 2, 12),
+
     # wait_button
     encode_lw(3, 2, 8),
-
-    # Si no hay botón, seguir esperando
     encode_beq(3, 0, -4),
 
-    # Botón correcto = 1
+    # Boton correcto = 1
     encode_addi(5, 0, 1),
     encode_beq(3, 5, 8),
 
-    # Botón incorrecto: reiniciar ronda
-    encode_jal(0, -56),
+    # Incorrecto -> reiniciar ronda
+    encode_jal(0, -60),
 
-    # correct
+    # Tiempo final
+    encode_lw(7, 2, 12),
+    encode_sub(8, 7, 6),
+
+    # 2.500.000 ciclos = 0,1 segundos
+    encode_lui(5, 0x262),
+    encode_addi(5, 5, 1440),
+
+    # Contador BCD de decimas
     encode_addi(4, 0, 0),
-    encode_sw(4, 2, 4),
+
+    # conversion_loop
+    encode_bge(8, 5, 8),
+    encode_jal(0, 36),
+
+    # Resta una decima
+    encode_sub(8, 8, 5),
+    encode_addi(4, 4, 1),
+
+    # Ajuste BCD
+    encode_andi(3, 4, 15),
+    encode_addi(6, 0, 10),
+    encode_beq(3, 6, 8),
+
+    # No necesita ajuste
+    encode_jal(0, -28),
+
+    # Ajuste 09 -> 10, 19 -> 20, etc.
+    encode_addi(4, 4, 6),
+    encode_jal(0, -36),
+
+    # display
+    encode_sw(4, 2, 0),
 
     # stop
     encode_jal(0, 0),
 ]
+
+
 with open("game.hex", "w") as f:
     for instr in program:
         f.write(f"{instr:08x}\n")
