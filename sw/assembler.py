@@ -99,15 +99,70 @@ def encode_bge(rs1, rs2, offset):
         | (imm11 << 7)
         | 0x63
     )
+def encode_or(rd, rs1, rs2):
+    return (
+        (0x00 << 25)
+        | ((rs2 & 0x1f) << 20)
+        | ((rs1 & 0x1f) << 15)
+        | (0x6 << 12)
+        | ((rd & 0x1f) << 7)
+        | 0x33
+    )
+
+def encode_bne(rs1, rs2, offset):
+    offset &= 0x1fff
+
+    imm12 = (offset >> 12) & 0x1
+    imm10_5 = (offset >> 5) & 0x3f
+    imm4_1 = (offset >> 1) & 0xf
+    imm11 = (offset >> 11) & 0x1
+
+    return (
+        (imm12 << 31)
+        | (imm10_5 << 25)
+        | ((rs2 & 0x1f) << 20)
+        | ((rs1 & 0x1f) << 15)
+        | (0x1 << 12)
+        | (imm4_1 << 8)
+        | (imm11 << 7)
+        | 0x63
+    )
+
+def encode_xor(rd, rs1, rs2):
+    return (
+        (0x00 << 25)
+        | ((rs2 & 0x1f) << 20)
+        | ((rs1 & 0x1f) << 15)
+        | (0x4 << 12)
+        | ((rd & 0x1f) << 7)
+        | 0x33
+    )
+
 
 program = [
+    # x2 = base MMIO 0x80000000
     encode_lui(2, 0x80000),
 
+    # Esperar cualquier boton para iniciar partida
+    encode_lw(3, 2, 8),
+    encode_beq(3, 0, -4),
+
+    # Semilla inicial
+    encode_lw(1, 2, 12),
+
+    # Esperar que se suelte el boton
+    encode_lw(3, 2, 8),
+    encode_bne(3, 0, -4),
+
+    # =====================
     # start_round
+    # =====================
+
+    # Cuatro LEDs encendidos
     encode_addi(4, 0, 15),
     encode_sw(4, 2, 4),
 
-    # Espera inicial
+    # Espera inicial ~3.2 s
     encode_lw(6, 2, 12),
     encode_lui(5, 0x04C00),
 
@@ -117,40 +172,87 @@ program = [
     encode_bge(8, 5, 8),
     encode_jal(0, -12),
 
-    # LED objetivo = LED 1
+    # Mezclar semilla con contador
+    encode_lw(7, 2, 12),
+    encode_xor(1, 1, 7),
+
+    # Tomar bits 20 y 21
+    encode_lui(5, 0x00300),
+    encode_and(3, 1, 5),
+
+    # 00 -> LED 1
+    encode_beq(3, 0, 28),
+
+    # 01 -> LED 2
+    encode_lui(5, 0x00100),
+    encode_beq(3, 5, 28),
+
+    # 10 -> LED 3
+    encode_lui(5, 0x00200),
+    encode_beq(3, 5, 28),
+
+    # 11 -> LED 4
+    encode_addi(4, 0, 8),
+    encode_jal(0, 24),
+
+    # LED 1
     encode_addi(4, 0, 1),
+    encode_jal(0, 16),
+
+    # LED 2
+    encode_addi(4, 0, 2),
+    encode_jal(0, 8),
+
+    # LED 3
+    encode_addi(4, 0, 4),
+
+    # Mostrar LED objetivo
     encode_sw(4, 2, 4),
 
-    # Inicio medicion
+    # Momento exacto de inicio de medicion
     encode_lw(6, 2, 12),
 
+    # =====================
     # wait_button
+    # =====================
+
     encode_lw(3, 2, 8),
+
+    # Ningun boton
     encode_beq(3, 0, -4),
 
-    # Boton correcto = 1
-    encode_addi(5, 0, 1),
-    encode_beq(3, 5, 8),
+    # Boton correcto
+    encode_beq(3, 4, 8),
 
     # Incorrecto -> reiniciar ronda
-    encode_jal(0, -60),
+    encode_jal(0, -116),
 
-    # Tiempo final
+    # =====================
+    # correct
+    # =====================
+
+    # Contador final
     encode_lw(7, 2, 12),
+
+    # x8 = ciclos de respuesta
     encode_sub(8, 7, 6),
 
-    # 2.500.000 ciclos = 0,1 segundos
+    # Actualizar semilla
+    encode_xor(1, 1, 7),
+    encode_xor(1, 1, 6),
+
+    # 2.500.000 ciclos = 0,1 s
     encode_lui(5, 0x262),
     encode_addi(5, 5, 1440),
 
-    # Contador BCD de decimas
+    # x4 = tiempo BCD
     encode_addi(4, 0, 0),
 
     # conversion_loop
     encode_bge(8, 5, 8),
     encode_jal(0, 36),
 
-    # Resta una decima
+    # Restar una decima
     encode_sub(8, 8, 5),
     encode_addi(4, 4, 1),
 
@@ -159,20 +261,23 @@ program = [
     encode_addi(6, 0, 10),
     encode_beq(3, 6, 8),
 
-    # No necesita ajuste
+    # Volver al loop
     encode_jal(0, -28),
 
     # Ajuste 09 -> 10, 19 -> 20, etc.
     encode_addi(4, 4, 6),
     encode_jal(0, -36),
 
-    # display
+    # Mostrar tiempo
     encode_sw(4, 2, 0),
 
-    # stop
-    encode_jal(0, 0),
-]
+    # Esperar que se suelte el boton
+    encode_lw(3, 2, 8),
+    encode_bne(3, 0, -4),
 
+    # Siguiente ronda
+    encode_jal(0, -200),
+]
 
 with open("game.hex", "w") as f:
     for instr in program:
