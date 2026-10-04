@@ -10,7 +10,8 @@
 
 module pochoco_soc #(
   parameter NumWords   = 512,
-  parameter MemFile    = "../sw/blink.hex"
+  parameter MemFile = "../sw/7seg.hex"
+ // parameter MemFile    = "../sw/blink.hex"
 ) (
   input  wire       i_Clk,
 
