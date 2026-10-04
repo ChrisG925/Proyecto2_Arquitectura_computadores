@@ -143,6 +143,8 @@ program = [
     # x2 = base MMIO 0x80000000
     encode_lui(2, 0x80000),
 
+    encode_addi(9, 0, 0),
+
     # Esperar cualquier boton para iniciar partida
     encode_lw(3, 2, 8),
     encode_beq(3, 0, -4),
@@ -268,15 +270,25 @@ program = [
     encode_addi(4, 4, 6),
     encode_jal(0, -36),
 
-    # Mostrar tiempo
-    encode_sw(4, 2, 0),
+   # Mostrar tiempo
+encode_sw(4, 2, 0),
 
-    # Esperar que se suelte el boton
-    encode_lw(3, 2, 8),
-    encode_bne(3, 0, -4),
+# Una respuesta correcta mas
+encode_addi(9, 9, 1),
 
-    # Siguiente ronda
-    encode_jal(0, -200),
+# Esperar que se suelte el boton
+encode_lw(3, 2, 8),
+encode_bne(3, 0, -4),
+
+# Comparar numero de rondas con 10
+encode_addi(10, 0, 10),
+encode_bge(9, 10, 8),
+
+# Todavia no son 10 -> siguiente ronda
+encode_jal(0, -212),
+
+# Ya fueron 10 -> detener juego
+encode_jal(0, 0),
 ]
 
 with open("game.hex", "w") as f:
