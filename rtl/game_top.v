@@ -27,7 +27,8 @@ module game_top (
 );
 
   pochoco_soc #(
-    .MemFile("../sw/buttons_leds.hex")
+    //.MemFile("../sw/buttons_leds.hex")
+    .MemFile("../sw/counter_test.hex")
   ) u_pochoco (
     .i_Clk(i_Clk),
 

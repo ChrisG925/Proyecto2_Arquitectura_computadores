@@ -1,4 +1,21 @@
 import sys
+def encode_jal(rd, offset):
+    offset &= 0x1fffff
+
+    imm20 = (offset >> 20) & 0x1
+    imm10_1 = (offset >> 1) & 0x3ff
+    imm11 = (offset >> 11) & 0x1
+    imm19_12 = (offset >> 12) & 0xff
+
+    return (
+        (imm20 << 31)
+        | (imm10_1 << 21)
+        | (imm11 << 20)
+        | (imm19_12 << 12)
+        | ((rd & 0x1f) << 7)
+        | 0x6f
+    )
+
 
 def reg(x):
     return int(x.replace("x", ""))
@@ -24,15 +41,89 @@ def encode_sw(rs2, rs1, imm):
     imm4_0 = imm & 0x1f
     return (imm11_5 << 25) | ((rs2 & 0x1f) << 20) | ((rs1 & 0x1f) << 15) | (2 << 12) | (imm4_0 << 7) | 0x23
 
+
+def encode_and(rd, rs1, rs2):
+    return (
+        (0x00 << 25)
+        | ((rs2 & 0x1f) << 20)
+        | ((rs1 & 0x1f) << 15)
+        | (0x7 << 12)
+        | ((rd & 0x1f) << 7)
+        | 0x33
+    )
+
+def encode_beq(rs1, rs2, offset):
+    offset &= 0x1fff
+
+    imm12 = (offset >> 12) & 0x1
+    imm10_5 = (offset >> 5) & 0x3f
+    imm4_1 = (offset >> 1) & 0xf
+    imm11 = (offset >> 11) & 0x1
+
+    return (
+        (imm12 << 31)
+        | (imm10_5 << 25)
+        | ((rs2 & 0x1f) << 20)
+        | ((rs1 & 0x1f) << 15)
+        | (0x0 << 12)
+        | (imm4_1 << 8)
+        | (imm11 << 7)
+        | 0x63
+    )
+
+def encode_sub(rd, rs1, rs2):
+    return (
+        (0x20 << 25)
+        | ((rs2 & 0x1f) << 20)
+        | ((rs1 & 0x1f) << 15)
+        | (0x0 << 12)
+        | ((rd & 0x1f) << 7)
+        | 0x33
+    )
+
+def encode_bge(rs1, rs2, offset):
+    offset &= 0x1fff
+
+    imm12 = (offset >> 12) & 0x1
+    imm10_5 = (offset >> 5) & 0x3f
+    imm4_1 = (offset >> 1) & 0xf
+    imm11 = (offset >> 11) & 0x1
+
+    return (
+        (imm12 << 31)
+        | (imm10_5 << 25)
+        | ((rs2 & 0x1f) << 20)
+        | ((rs1 & 0x1f) << 15)
+        | (0x5 << 12)
+        | (imm4_1 << 8)
+        | (imm11 << 7)
+        | 0x63
+    )
+
 program = [
     encode_lui(2, 0x80000),
     encode_addi(2, 2, 12),
-    encode_lw(1, 2, 0),
-    encode_srli(3, 1, 20),
-    encode_andi(3, 3, 15),
-    encode_lui(4, 0x80000),
-    encode_addi(4, 4, 4),
-    encode_sw(3, 4, 0),
+
+    encode_lui(3, 0x80000),
+    encode_addi(3, 3, 4),
+
+    encode_addi(4, 0, 15),
+    encode_sw(4, 3, 0),
+
+    encode_lw(6, 2, 0),
+
+    encode_lui(5, 0x4787),
+    encode_addi(5, 5, -1856),
+
+    encode_lw(7, 2, 0),
+    encode_sub(8, 7, 6),
+    encode_bge(8, 5, 8),
+    encode_jal(0, -12),
+
+    encode_addi(4, 0, 0),
+    encode_sw(4, 3, 0),
+
+    encode_jal(0, 0),
 ]
 
 with open("counter_test.hex", "w") as f:

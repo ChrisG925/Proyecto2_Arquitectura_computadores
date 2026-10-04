@@ -5,15 +5,26 @@ _start:
     lui  x2, 0x80000
     addi x2, x2, 12
 
-loop:
-    lw   x1, 0(x2)
+    lui  x3, 0x80000
+    addi x3, x3, 4
 
-    srli x3, x1, 20
-    andi x3, x3, 15
+    addi x4, x0, 15
+    sw   x4, 0(x3)
 
-    lui  x4, 0x80000
-    addi x4, x4, 4
+    lw   x6, 0(x2)
 
-    sw   x3, 0(x4)
+    lui  x5, 0x4787
+    addi x5, x5, -1856
 
-    jal  x0, loop
+wait:
+    lw   x7, 0(x2)
+    sub  x8, x7, x6
+    bge  x8, x5, done
+    jal  x0, wait
+
+done:
+    addi x4, x0, 0
+    sw   x4, 0(x3)
+
+stop:
+    jal x0, stop
