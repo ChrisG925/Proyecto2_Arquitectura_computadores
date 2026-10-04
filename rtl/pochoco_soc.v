@@ -9,8 +9,8 @@
 // - Nicolás Villegas <navillegas@miuandes.cl>
 
 module pochoco_soc #(
-  parameter NumWords   = 512,
-  parameter MemFile    = "../sw/blink.hex"
+  parameter NumWords = 512,
+  parameter MemFile  = ""
 ) (
   input  wire       i_Clk,
 
@@ -32,12 +32,16 @@ module pochoco_soc #(
   assign clk = i_Clk;
 
   // Power-on reset
-  reg  [3:0] por_cnt = 4'b0;
+  reg [15:0] por_cnt = 16'b0; // cambio
   wire       rst_ni;
   always @(posedge clk) begin
-    if (por_cnt != 4'hF) por_cnt <= por_cnt + 4'd1;
-  end
-  assign rst_ni = (por_cnt == 4'hF);
+  if (por_cnt != 16'hFFFF)
+    por_cnt <= por_cnt + 16'd1;
+end
+
+assign rst_ni = (por_cnt == 16'hFFFF);
+// fin del cambio
+
 
   // Core-memory wiring
   wire        instr_req;

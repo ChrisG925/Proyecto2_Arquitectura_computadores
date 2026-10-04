@@ -102,32 +102,35 @@ def encode_bge(rs1, rs2, offset):
 
 program = [
     encode_lui(2, 0x80000),
-    encode_addi(2, 2, 12),
-
-    encode_lui(3, 0x80000),
-    encode_addi(3, 3, 4),
 
     encode_addi(4, 0, 15),
-    encode_sw(4, 3, 0),
+    encode_sw(4, 2, 4),
 
-    encode_lw(6, 2, 0),
+    encode_lw(6, 2, 12),
 
-    encode_lui(5, 0x4787),
-    encode_addi(5, 5, -1856),
+    encode_lui(5, 0x04C00),
 
-    encode_lw(7, 2, 0),
+    encode_lw(7, 2, 12),
     encode_sub(8, 7, 6),
     encode_bge(8, 5, 8),
     encode_jal(0, -12),
 
+    encode_addi(4, 0, 1),
+    encode_sw(4, 2, 4),
+
+    encode_lw(3, 2, 8),
+    encode_addi(5, 0, 1),
+    encode_beq(3, 5, 8),
+    encode_jal(0, -12),
+
     encode_addi(4, 0, 0),
-    encode_sw(4, 3, 0),
+    encode_sw(4, 2, 4),
 
     encode_jal(0, 0),
 ]
 
-with open("counter_test.hex", "w") as f:
+with open("game.hex", "w") as f:
     for instr in program:
         f.write(f"{instr:08x}\n")
 
-print("counter_test.hex generado")
+print("game.hex generado")
