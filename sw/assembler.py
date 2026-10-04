@@ -103,32 +103,43 @@ def encode_bge(rs1, rs2, offset):
 program = [
     encode_lui(2, 0x80000),
 
+    # start_round
     encode_addi(4, 0, 15),
     encode_sw(4, 2, 4),
 
     encode_lw(6, 2, 12),
-
     encode_lui(5, 0x04C00),
 
+    # wait_3s
     encode_lw(7, 2, 12),
     encode_sub(8, 7, 6),
     encode_bge(8, 5, 8),
     encode_jal(0, -12),
 
+    # target: LED 1
     encode_addi(4, 0, 1),
     encode_sw(4, 2, 4),
 
+    # wait_button
     encode_lw(3, 2, 8),
+
+    # Si no hay botón, seguir esperando
+    encode_beq(3, 0, -4),
+
+    # Botón correcto = 1
     encode_addi(5, 0, 1),
     encode_beq(3, 5, 8),
-    encode_jal(0, -12),
 
+    # Botón incorrecto: reiniciar ronda
+    encode_jal(0, -56),
+
+    # correct
     encode_addi(4, 0, 0),
     encode_sw(4, 2, 4),
 
+    # stop
     encode_jal(0, 0),
 ]
-
 with open("game.hex", "w") as f:
     for instr in program:
         f.write(f"{instr:08x}\n")
