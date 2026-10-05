@@ -4,43 +4,43 @@
 # SPDX-License-Identifier: SHL-0.51
 #
 # Course: Arquitectura de Computadores (2026)
-# 
+#
 # Authors:
 # - Nicolás Villegas <navillegas@miuandes.cl>
 
-# Configuration
 TOP := game_top
-PCF  := goboard.pcf
+PCF := goboard.pcf
 
-# RTL Sources
-SRC  := $(wildcard ./rtl/*.v ./rtl/**/*.v)
+SRC := $(wildcard ./rtl/*.v ./rtl/**/*.v)
 
-# Build Targets
+GAME_S := sw/game.s
+ASSEMBLER := sw/assembler.py
+GAME_HEX := sw/game.hex
+
 JSON := $(TOP).json
-ASC  := $(TOP).asc
-BIN  := $(TOP).bin
+ASC := $(TOP).asc
+BIN := $(TOP).bin
 
-.PHONY: all prog clean stats
+.PHONY: all game prog clean stats
 
-# Default target
 all: prog
 
-# Step 1: Synthesis using Yosys
-$(JSON): $(SRC)
-	yosys -p "read_verilog $(SRC); synth_ice40 -top $(TOP) -json ${TOP}.json; stat"
+game: $(GAME_HEX)
 
-# Step 2: Place and Route using NextPNR
+$(GAME_HEX): $(GAME_S) $(ASSEMBLER)
+	cd sw && python assembler.py game.s game.hex
+
+$(JSON): $(SRC) $(GAME_HEX)
+	yosys -p "read_verilog $(SRC); synth_ice40 -top $(TOP) -json $(TOP).json; stat"
+
 $(ASC): $(JSON) $(PCF)
 	nextpnr-ice40 --hx1k --package vq100 --json $(JSON) --pcf $(PCF) --asc $(ASC)
 
-# Step 3: Bitstream Generation
 $(BIN): $(ASC)
 	icepack $(ASC) $(BIN)
 
-# Step 4: Flash the Board
 prog: $(BIN)
 	iceprog $(BIN)
 
-# Clean up generated files
 clean:
 	rm -f $(JSON) $(ASC) $(BIN)
