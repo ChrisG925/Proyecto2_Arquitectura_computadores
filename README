@@ -1,0 +1,559 @@
+# Georgi - Quinteros - Riveros | Proyecto 2
+
+## Arquitectura de Computadores
+
+**Profesor:** Jorge Gómez Mir
+
+### Integrantes
+
+- Christian Georgi
+- Diego Quinteros
+- Felipe Riveros
+
+---
+
+## Descripción del proyecto
+
+Este proyecto consiste en la implementación de un juego de reflejos en Assembly sobre el **Pochoco SoC**, utilizando una FPGA Nandland Go Board con un dispositivo Lattice iCE40 HX1K.
+
+El sistema utiliza el procesador **Espino Core**, basado en RV32E, junto con memoria RAM y periféricos mapeados en memoria.
+
+En cada ronda se encienden los cuatro LEDs durante aproximadamente 3 segundos y posteriormente se selecciona uno de los cuatro LEDs de forma pseudoaleatoria.
+
+El jugador debe presionar el botón correspondiente al LED seleccionado lo más rápido posible.
+
+El tiempo de reacción se mide utilizando un contador de ciclos y se muestra en los displays de 7 segmentos en décimas de segundo.
+
+El juego finaliza después de completar 10 respuestas correctas. Luego se calcula y muestra el tiempo promedio de respuesta.
+
+El proyecto también incluye un assembler propio desarrollado en Python, encargado de convertir el archivo `game.s` en el archivo de código máquina `game.hex`.
+
+---
+
+## Funcionamiento del juego
+
+El funcionamiento general del juego es el siguiente:
+
+1. Al programar la FPGA, el sistema espera que el jugador presione cualquier botón para comenzar la partida.
+2. Al soltar el botón comienza la primera ronda.
+3. Los cuatro LEDs permanecen encendidos durante aproximadamente 3 segundos.
+4. Se selecciona uno de los cuatro LEDs de forma pseudoaleatoria.
+5. Se enciende únicamente el LED seleccionado.
+6. El jugador debe presionar el botón correspondiente lo más rápido posible.
+7. Si el botón es correcto, se calcula el tiempo de reacción y se muestra en los displays.
+8. Si el botón es incorrecto, la ronda actual se reinicia.
+9. Las respuestas correctas obtenidas anteriormente se conservan.
+10. El proceso continúa hasta completar 10 respuestas correctas.
+11. Después de la décima respuesta se muestra brevemente el último tiempo obtenido.
+12. Finalmente se calcula y muestra el promedio de las 10 respuestas.
+
+Los tiempos se muestran en décimas de segundo.
+
+Por ejemplo:
+
+`08` corresponde aproximadamente a `0,8 segundos`.
+
+`15` corresponde aproximadamente a `1,5 segundos`.
+
+---
+
+## Periféricos utilizados
+
+Los periféricos principales del juego se encuentran mapeados a partir de la dirección:
+
+`0x80000000`
+
+La distribución utilizada es:
+
+| Dirección | Periférico |
+|---|---|
+| `0x80000000` | Displays de 7 segmentos |
+| `0x80000004` | LEDs |
+| `0x80000008` | Botones |
+| `0x8000000C` | Contador de ciclos |
+
+El contador de ciclos fue agregado al sistema para implementar las temporizaciones, medir el tiempo de reacción y colaborar con la generación pseudoaleatoria del LED objetivo.
+
+---
+
+## Selección pseudoaleatoria
+
+La selección del LED objetivo utiliza información obtenida desde el contador de ciclos.
+
+Al comenzar una partida, el instante en que el jugador presiona el botón de inicio se utiliza como parte de la semilla inicial.
+
+Durante las siguientes rondas la semilla se actualiza utilizando valores del contador y los tiempos de respuesta del jugador.
+
+De esta manera, la secuencia de LEDs puede cambiar entre distintas partidas y no corresponde a una secuencia fija.
+
+---
+
+## Archivos principales
+
+### Hardware
+
+`rtl/game_top.v`
+
+Módulo superior del proyecto. Instancia el Pochoco SoC y selecciona `game.hex` como imagen de memoria.
+
+`rtl/pochoco_soc.v`
+
+Módulo principal del Pochoco SoC. Contiene el procesador Espino Core, memoria RAM y periféricos.
+
+`rtl/pochoco_periph.v`
+
+Implementa los periféricos utilizados por el procesador:
+
+- LEDs
+- Botones
+- Displays de 7 segmentos
+- Contador de ciclos
+
+`rtl/pochoco_ram.v`
+
+Memoria utilizada para almacenar las instrucciones y datos del sistema.
+
+`rtl/espino_core/`
+
+Contiene los distintos módulos que forman el procesador Espino Core.
+
+`rtl/pochoco_spi_slave.v`
+
+Implementación del periférico SPI del SoC.
+
+`goboard.pcf`
+
+Archivo que contiene la asignación de pines de la Nandland Go Board.
+
+### Software
+
+`sw/game.s`
+
+Programa principal del juego escrito en Assembly RV32E.
+
+`sw/assembler.py`
+
+Assembler propio desarrollado en Python.
+
+`sw/game.hex`
+
+Código máquina generado automáticamente desde `game.s`.
+
+### Compilación
+
+`Makefile`
+
+Automatiza la generación de `game.hex`, síntesis, Place and Route, generación del bitstream y programación de la FPGA.
+
+---
+
+## Assembler
+
+El proyecto incluye un assembler propio desarrollado en Python.
+
+El assembler recibe como entrada:
+
+`sw/game.s`
+
+y genera:
+
+`sw/game.hex`
+
+El archivo `game.hex` contiene una instrucción de 32 bits en hexadecimal por línea y puede ser cargado directamente en la memoria del Pochoco SoC.
+
+El assembler no utiliza un assembler RISC-V externo.
+
+Las principales instrucciones soportadas son:
+
+- `lui`
+- `addi`
+- `andi`
+- `add`
+- `sub`
+- `xor`
+- `and`
+- `or`
+- `lw`
+- `sw`
+- `beq`
+- `bne`
+- `bge`
+- `jal`
+
+Además, permite utilizar etiquetas para branches y saltos, calculando automáticamente los offsets correspondientes.
+
+Los registros válidos corresponden al conjunto RV32E:
+
+`x0 - x15`
+
+---
+
+## Requisitos
+
+Para compilar y programar el proyecto es necesario contar con las siguientes herramientas:
+
+- Git
+- GNU Make
+- Python 3
+- Yosys
+- nextpnr-ice40
+- Project IceStorm
+  - icepack
+  - iceprog
+
+Para programar físicamente la FPGA también es necesario disponer de:
+
+- Nandland Go Board
+- Cable USB
+- Driver compatible con la interfaz de programación de la placa
+
+El proyecto fue desarrollado y probado utilizando Windows con **MSYS2 UCRT64**.
+
+También puede utilizarse otro sistema operativo siempre que las herramientas necesarias se encuentren correctamente instaladas y disponibles desde la terminal.
+
+---
+
+## Descargar el proyecto
+
+Clonar el repositorio:
+
+```
+git clone <URL-DEL-REPOSITORIO>
+```
+
+Luego ingresar a la carpeta del proyecto:
+
+```
+cd Proyecto2_Arquitectura_computadores
+```
+
+Reemplazar `<URL-DEL-REPOSITORIO>` por la dirección correspondiente del repositorio en GitHub.
+
+---
+
+## Generar game.hex
+
+Para generar `game.hex` desde `game.s` utilizando el assembler propio:
+
+```
+make game
+```
+
+El assembler toma como entrada:
+
+`sw/game.s`
+
+y genera:
+
+`sw/game.hex`
+
+También puede ejecutarse directamente mediante:
+
+```
+cd sw
+python assembler.py game.s game.hex
+```
+
+El assembler muestra las etiquetas encontradas, sus direcciones y la cantidad de instrucciones generadas.
+
+---
+
+## Uso del Makefile
+
+El proyecto utiliza un `Makefile` para automatizar la generación del código máquina, la síntesis del diseño, el Place and Route, la generación del bitstream y la programación de la FPGA.
+
+Los principales comandos disponibles son los siguientes.
+
+### Generar game.hex
+
+Para ejecutar el assembler y generar `sw/game.hex` a partir de `sw/game.s`:
+
+```
+make game
+```
+
+Este comando ejecuta el assembler desarrollado en Python.
+
+Si `game.hex` ya está actualizado y no se han realizado cambios en `game.s` ni en `assembler.py`, puede aparecer:
+
+```
+make: Nothing to be done for 'game'.
+```
+
+Esto significa que `game.hex` ya se encuentra actualizado y no es necesario volver a generarlo.
+
+Si se desea forzar la regeneración se puede utilizar:
+
+```
+touch sw/game.s
+make game
+```
+
+También se puede eliminar `game.hex` y volver a generarlo:
+
+```
+rm sw/game.hex
+make game
+```
+
+### Ejecutar el flujo completo
+
+Para ejecutar todo el proceso y programar la FPGA:
+
+```
+make
+```
+
+También puede utilizarse:
+
+```
+make all
+```
+
+El flujo realizado es:
+
+```
+game.s
+   ↓
+assembler.py
+   ↓
+game.hex
+   ↓
+Yosys
+   ↓
+game_top.json
+   ↓
+nextpnr-ice40
+   ↓
+game_top.asc
+   ↓
+icepack
+   ↓
+game_top.bin
+   ↓
+iceprog
+   ↓
+FPGA
+```
+
+La Nandland Go Board debe estar conectada al computador mediante USB antes de ejecutar este comando.
+
+### Programar la FPGA
+
+Si los archivos de síntesis ya fueron generados, se puede programar nuevamente la FPGA mediante:
+
+```
+make prog
+```
+
+Este comando utiliza `iceprog` para cargar:
+
+`game_top.bin`
+
+en la FPGA.
+
+También se puede programar directamente mediante:
+
+```
+iceprog game_top.bin
+```
+
+### Limpiar archivos generados
+
+Para eliminar los archivos generados durante la síntesis, Place and Route y generación del bitstream:
+
+```
+make clean
+```
+
+Este comando elimina:
+
+- `game_top.json`
+- `game_top.asc`
+- `game_top.bin`
+
+No elimina los archivos fuente ni `sw/game.hex`.
+
+### Flujo recomendado al modificar game.s
+
+Si se realiza una modificación en el programa Assembly:
+
+```
+make game
+make clean
+make
+```
+
+Primero se genera nuevamente `game.hex` y luego se realiza todo el proceso de síntesis y programación.
+
+### Flujo recomendado al modificar el RTL
+
+Si se modifica algún archivo del hardware, por ejemplo:
+
+- `game_top.v`
+- `pochoco_soc.v`
+- `pochoco_periph.v`
+- algún módulo del procesador
+
+se recomienda ejecutar:
+
+```
+make clean
+make
+```
+
+### Resumen de comandos
+
+| Comando | Función |
+|---|---|
+| `make game` | Genera `game.hex` desde `game.s` |
+| `make` | Sintetiza el proyecto y programa la FPGA |
+| `make all` | Ejecuta el mismo flujo que `make` |
+| `make prog` | Programa la FPGA utilizando `game_top.bin` |
+| `make clean` | Elimina los archivos generados por la síntesis |
+
+---
+
+## Síntesis y programación
+
+La síntesis del diseño se realiza utilizando Yosys.
+
+El módulo superior utilizado por el proyecto es:
+
+`game_top`
+
+Como resultado de la síntesis se genera:
+
+`game_top.json`
+
+Posteriormente se realiza el Place and Route utilizando:
+
+`nextpnr-ice40`
+
+para una FPGA Lattice iCE40 HX1K con package VQ100.
+
+La asignación de pines de la Nandland Go Board se encuentra definida en:
+
+`goboard.pcf`
+
+Como resultado se genera:
+
+`game_top.asc`
+
+Luego `icepack` genera el bitstream:
+
+`game_top.bin`
+
+Finalmente, `iceprog` programa el bitstream en la FPGA.
+
+Todo este proceso puede realizarse automáticamente mediante:
+
+```
+make
+```
+
+Una programación correcta termina con un mensaje similar a:
+
+```
+VERIFY OK
+cdone: high
+```
+
+---
+
+## Uso del juego en la FPGA
+
+Una vez programada la placa:
+
+1. Presionar cualquier botón para comenzar una nueva partida.
+2. Soltar el botón.
+3. Los cuatro LEDs permanecerán encendidos durante aproximadamente 3 segundos.
+4. Luego quedará encendido un único LED seleccionado de forma pseudoaleatoria.
+5. Presionar lo más rápido posible el botón correspondiente al LED encendido.
+6. El tiempo de reacción se mostrará en los displays de 7 segmentos.
+7. Automáticamente comenzará la siguiente ronda.
+8. Si se presiona un botón incorrecto, la ronda actual se reinicia.
+9. Las rondas correctas obtenidas anteriormente se conservan.
+10. El juego continúa hasta completar 10 respuestas correctas.
+11. Después de la décima respuesta se muestra brevemente el último tiempo obtenido.
+12. Finalmente se muestra el promedio de las 10 respuestas.
+
+Los tiempos se muestran en décimas de segundo.
+
+Por ejemplo:
+
+`08` corresponde aproximadamente a `0,8 segundos`.
+
+`15` corresponde aproximadamente a `1,5 segundos`.
+
+---
+
+## Modificar el juego
+
+El comportamiento principal del juego se encuentra definido en:
+
+`sw/game.s`
+
+Para modificar el funcionamiento del juego se debe editar este archivo.
+
+Después de realizar un cambio se debe regenerar `game.hex` mediante:
+
+```
+make game
+```
+
+Luego se debe volver a sintetizar y programar la FPGA:
+
+```
+make clean
+make
+```
+
+De esta forma es posible modificar constantes y el comportamiento del juego sin editar manualmente el archivo `game.hex`.
+
+---
+
+## Limpiar archivos generados
+
+Para eliminar los archivos generados durante la síntesis y la generación del bitstream:
+
+```
+make clean
+```
+
+Se eliminan:
+
+- `game_top.json`
+- `game_top.asc`
+- `game_top.bin`
+
+Los archivos fuente, el assembler y `game.hex` se mantienen.
+
+---
+
+## Flujo completo
+
+Para ejecutar el proyecto desde un computador nuevo, el procedimiento general es:
+
+1. Instalar las herramientas necesarias.
+2. Clonar el repositorio.
+3. Ingresar a la carpeta `Proyecto2_Arquitectura_computadores`.
+4. Generar `game.hex`:
+
+```
+make game
+```
+
+5. Conectar la Nandland Go Board al computador mediante USB.
+6. Ejecutar:
+
+```
+make
+```
+
+7. Esperar que la programación termine correctamente.
+8. Verificar que `iceprog` indique `VERIFY OK`.
+9. Presionar cualquier botón para comenzar la partida.
+10. Completar las 10 respuestas correctas.
+11. Verificar los tiempos individuales mostrados en los displays.
+12. Verificar el promedio final de las 10 rondas.
